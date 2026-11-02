@@ -73,14 +73,34 @@ function ensureContainer(root: Element): HTMLElement {
   return container;
 }
 
-function parseSvg(markup: string): SVGSVGElement | null {
+function parseSvg(markup: string, id: string): SVGSVGElement | null {
   const doc = new DOMParser().parseFromString(markup, 'text/html');
   const svg = doc.body.querySelector('svg');
   if (svg === null) return null;
+  renameRenderId(svg, id);
   const width = Number.parseFloat(svg.style.maxWidth);
   // mermaid's width="100%" + max-width shrinks wide diagrams without bound; cap the shrink so text stays legible and the container scrolls instead.
   if (Number.isFinite(width) && width > 0) svg.style.minWidth = `${Math.round(width * MIN_SCALE)}px`;
   return document.adoptNode(svg);
+}
+
+/**
+ * mermaid stamps its render id into the svg root and scopes everything else by it: the
+ * embedded `<style>` (`#<id> .node rect { fill … }`), marker ids (`<id>_flowchart-v2-pointEnd`)
+ * and their `url(#…)` references. Renaming only the root unstyles the diagram (black nodes,
+ * unreadable labels: P-12), so every reference moves with it. The old id is one this file
+ * generated (`dsh-mermaid-<n>`, no regex metacharacters); `(?!\d)` keeps `-1` off `-12`.
+ * Label text is never touched: only the style sheet and attribute values.
+ */
+function renameRenderId(svg: SVGSVGElement, id: string): void {
+  const old = svg.id;
+  svg.id = id;
+  if (old === '' || old === id) return;
+  const ref = new RegExp(`(?<![\\w-])${old}(?!\\d)`, 'g');
+  for (const el of svg.querySelectorAll('*')) {
+    if (el.tagName.toLowerCase() === 'style') el.textContent = (el.textContent ?? '').replace(ref, id);
+    for (const attr of el.attributes) if (attr.value.includes(old)) attr.value = attr.value.replace(ref, id);
+  }
 }
 
 export function apply(ctx: Context): void {
@@ -114,11 +134,10 @@ export function apply(ctx: Context): void {
       const view = root.getAttribute(VIEW) === 'code' ? 'code' : 'diagram';
       setView(root, toggle, view);
       if (shown.get(root) === state) return;
-      const svg = parseSvg(state.svg);
-      // The chunk cache returns the first render's markup, mermaid stamps its render id into
-      // the svg root, so identical diagrams would share one element id (P-10). Assign a fresh
-      // id per application instead; nothing inside the svg references the root id.
-      if (svg !== null) svg.id = `dsh-mermaid-${++seq}`;
+      // The chunk cache returns the first render's markup with mermaid's render id in it, so
+      // identical diagrams would share element ids (P-10). Each application gets a fresh id,
+      // and the svg's own references move with it (P-12).
+      const svg = parseSvg(state.svg, `dsh-mermaid-${++seq}`);
       container.removeAttribute(ERROR);
       container.setAttribute(THEME, state.key.theme);
       container.replaceChildren(...(svg ? [svg] : []));
