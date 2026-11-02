@@ -1,11 +1,11 @@
-# dsh-plugin-mermaid SPEC
+# dsh-mermaid SPEC
 
 Renders mermaid code fences inside dsh web transcripts as diagrams, in place, with a
 code/diagram toggle, theme-aware, safe against untrusted diagram text. The dsh-TUI has no
 mermaid surface: the plugin is web-only and must be **inert** there (rationale: diagram
 rendering needs a DOM; dsh-TUI shows fences as markdown code text, which is the host's
-behavior, not ours). Fleet pins: DSH 0.2.1-alpha.2 (temporary alpha exception, 2026-10-10),
-dsh-TUI 0.14.0. Non-goals: editing diagrams, mermaid config UI, TUI rendering, Live
+behavior, not ours). Fleet pins: DSH 0.2.1-rc.2, dsh-TUI 0.17.0 (fleet build; the flake's
+unpatched fixture is nix-dsh's 0.15.0). Non-goals: editing diagrams, mermaid config UI, TUI rendering, Live
 username rules.
 
 State ownership: none on disk; all state is per-element DOM attribute + in-memory render
@@ -21,6 +21,9 @@ the message text. No config keys.
 - Web client half loads via \`window.__ModuleLoader__.load({id, factory})\`, lazy mermaid
   chunk via \`require.async('./client.mermaid.js')\` — C-06.
 - Node half: \`apply() {}\` no-op (web-only plugin).
+- Installable bundle: \`package.json\` \`dsh.bundle.patch\` → \`cordis.patch.yml\` inserts the one
+  \`ui-mermaid\` row (\`name: dsh-mermaid\`); \`dsh plugin add\` appends the package to
+  \`dsh.profile.bundles\` — bundle-install.e2e.test.ts.
 
 ## Acceptance properties
 
@@ -37,6 +40,7 @@ the message text. No config keys.
 | P-09 | No page errors, console errors or failed requests beyond the allowlisted stock-app noise | every case asserts problems == [] | — |
 | P-10 | Identical diagrams get distinct SVG element ids | duplicate-ids.test.ts (deterministic; property generator rarely collides) | — |
 | P-11 | Disposing the plugin restores the original DOM exactly and stops reacting (style, containers, toggles, VIEW attributes gone; late renders apply nothing) | client.dispose.test.ts on shipped lib/client.js (real client has no plugin-unload seam; bundle boundary) | — |
+| P-12 | Every rendered flowchart is legible: one node per label, each label's colour contrasts ≥ 3:1 with its node fill (the diagram's own styles apply after the per-application id change) | same (computed-style oracle per block) + bundle-install.e2e.test.ts | — |
 
 Contract C-01..C-06 pin the DSH seams above against the exact dsh build (test/contract).
 TUI inertness (option 3a): with the plugin loaded a real dsh-TUI starts, the row is composed,

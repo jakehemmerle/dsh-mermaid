@@ -4,7 +4,8 @@ import fc from 'fast-check';
 import type { Page } from 'playwright';
 import { afterAll, describe, expect, it } from 'vitest';
 import { closeBrowser, composer, screenshot, startWebFixture, type WebFixture } from './fixture';
-import { type Action, actions, addTurn, type Model, type PageSnap, replyText, violations } from './model';
+import { type Action, actions, addTurn, type Model, replyText, violations } from './model';
+import { snapshot } from './snapshot';
 
 const NUM_RUNS = Number(process.env.NUM_RUNS ?? 5);
 const SEED = process.env.FC_SEED === undefined ? Date.now() ^ (Math.random() * 0x7fffffff) : Number(process.env.FC_SEED);
@@ -12,40 +13,6 @@ const PATH = process.env.FC_PATH;
 const MAX_ACTIONS = Number(process.env.MAX_ACTIONS ?? 8);
 const SETTLE_MS = 30_000;
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
-export function snapshot(page: Page): Promise<PageSnap> {
-  return page.evaluate(() => {
-    const blocks = [...document.querySelectorAll('.md-code-block')].map((root) => {
-      const content = root.querySelector('[data-code-block-content]');
-      const containers = root.querySelectorAll(':scope > [data-dsh-mermaid]');
-      const c = containers[0] as HTMLElement | undefined;
-      const executable: string[] = [];
-      for (const el of c ? [c, ...c.querySelectorAll('*')] : []) {
-        if (el.tagName.toLowerCase() === 'script') executable.push('script');
-        for (const a of el.attributes) {
-          if (/^on/i.test(a.name)) executable.push(a.name);
-          if (/href$/i.test(a.name) && /^\s*javascript:/i.test(a.value)) executable.push('javascript:');
-        }
-      }
-      return {
-        code: content?.querySelector('code')?.textContent ?? '',
-        contentDisplay: content ? getComputedStyle(content).display : 'missing',
-        containers: containers.length,
-        containerIsLast: c !== undefined && root.lastElementChild === c,
-        containerDisplay: c ? getComputedStyle(c).display : null,
-        error: c?.hasAttribute('data-dsh-mermaid-error') ?? false,
-        text: c?.textContent ?? '',
-        theme: c?.getAttribute('data-dsh-mermaid-theme') ?? null,
-        svgs: c ? c.querySelectorAll(':scope > svg').length : 0,
-        toggles: [...root.querySelectorAll('[data-dsh-mermaid-toggle]')].map((t) => t.getAttribute('aria-label') ?? ''),
-        executable,
-      };
-    });
-    const svgIds = [...document.querySelectorAll('[data-dsh-mermaid] > svg')].map((s) => s.id);
-    const stray = document.querySelectorAll('body > [id^="dsh-mermaid-"], body > [id^="ddsh-mermaid-"], body > [id^="idsh-mermaid-"]').length;
-    return { blocks, svgIds, stray, empties: 0 };
-  });
-}
 
 async function settle(page: Page, model: Model, label: string): Promise<void> {
   const deadline = Date.now() + SETTLE_MS;

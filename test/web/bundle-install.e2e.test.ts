@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { type Install, installPlugin, mermaidRows, PACKAGE_NAME } from '../install';
 import { closeBrowser, composer, screenshot, startWebFixture } from './fixture';
+import { snapshot } from './snapshot';
 
 const FENCE = '```mermaid\nflowchart LR\n  A["bundle alpha"] --> B["bundle beta"]\n```';
 
@@ -30,7 +31,7 @@ function measure(): Drawn {
       const ref = /url\(#([^)]+)\)/.exec(p.getAttribute('marker-end') ?? '')?.[1];
       return ref !== undefined && svg.querySelector(`marker[id="${CSS.escape(ref)}"]`) !== null;
     }).length,
-    toggle: document.querySelector('[data-dsh-mermaid-toggle]')?.textContent ?? '',
+    toggle: document.querySelector('[data-dsh-mermaid-toggle]')?.getAttribute('aria-label') ?? '',
   };
 }
 
@@ -69,6 +70,10 @@ describe('dsh plugin add (real dsh web, bundle install)', () => {
         expect(drawn.labels).toContain('bundle beta');
         expect(drawn.markers, 'arrowhead resolves inside the svg').toBeGreaterThan(0);
         expect(drawn.toggle).toBe('Show code');
+        const [block] = (await snapshot(f.page)).blocks;
+        console.log(`[bundle-${install}] nodes=${block?.nodes} minContrast=${block?.minContrast?.toFixed(2)}`);
+        expect(block?.nodes, 'P-12: flowchart nodes').toBe(2);
+        expect(block?.minContrast ?? 0, 'P-12: label/fill contrast (diagram styles applied)').toBeGreaterThanOrEqual(3);
         expect(f.problems, 'P-09: page errors').toEqual([]);
       } catch (error) {
         await screenshot(f.page, `bundle-${install}-failure`);

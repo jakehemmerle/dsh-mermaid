@@ -83,6 +83,9 @@ export interface BlockSnap {
   text: string;
   theme: string | null;
   svgs: number;
+  /** Flowchart nodes in the diagram and the lowest label/fill contrast among them (P-12). */
+  nodes: number;
+  minContrast: number | null;
   toggles: string[];
   executable: string[];
 }
@@ -122,6 +125,10 @@ export function violations(model: Model, snap: PageSnap, { uniqueIds = true } = 
     if (b.error || b.svgs !== 1) { out.push(`P-02: ${where} error=${b.error} svgs=${b.svgs} text=${JSON.stringify(b.text.slice(0, 80))}`); return; }
     const flat = b.text.replace(/\s+/g, ' ');
     for (const l of m.labels) if (!flat.includes(l)) out.push(`P-02: ${where} label ${JSON.stringify(l)} missing from diagram`);
+    // Each label entry is its own node (`n<i>["label"]`); a node whose styles did not apply
+    // renders as a black box with unreadable text even though its label is in the DOM.
+    if (b.nodes !== m.labels.length) out.push(`P-12: ${where} has ${b.nodes} flowchart nodes, expected ${m.labels.length}`);
+    else if (b.minContrast === null || b.minContrast < 3) out.push(`P-12: ${where} label/fill contrast ${b.minContrast?.toFixed(2)} < 3 (diagram styles not applied)`);
     if (b.theme !== model.theme) out.push(`P-05: ${where} rendered for ${b.theme}, page is ${model.theme}`);
     const label = m.view === 'diagram' ? 'Show code' : 'Show diagram';
     if (b.toggles.length !== 1 || b.toggles[0] !== label) out.push(`P-04: ${where} toggles ${JSON.stringify(b.toggles)} expected [${label}]`);
