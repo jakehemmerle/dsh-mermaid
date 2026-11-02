@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const PLUGIN_ENTRY = join(ROOT, 'lib/index.js');
@@ -28,9 +28,9 @@ export function pluginRows(mode: Install): { id: string; name: string; config: o
   return mode === 'row' ? [{ id: ROW_ID, name: PLUGIN_ENTRY, config: {} }] : [];
 }
 
-/** The `name` the composed row carries in each mode. */
+/** The `name` the composed row carries in each mode (DSH 0.2.1-rc.2 composes an absolute path row as its file: URL). */
 export function rowName(mode: Install): string {
-  return mode === 'row' ? PLUGIN_ENTRY : PACKAGE_NAME;
+  return mode === 'row' ? pathToFileURL(PLUGIN_ENTRY).href : PACKAGE_NAME;
 }
 
 interface Run { status: number | null; stdout: string; stderr: string }
