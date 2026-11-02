@@ -19,8 +19,8 @@ function fn(source: string, name: string): string {
 }
 
 describe('pinned DSH seams', () => {
-  it('C-01: runs the pinned dsh 0.2.1-alpha.2', () => {
-    expect(JSON.parse(read(join(ROOT, 'package.json'))).version).toBe('0.2.1-alpha.2');
+  it('C-01: runs the pinned dsh 0.2.1-rc.2', () => {
+    expect(JSON.parse(read(join(ROOT, 'package.json'))).version).toBe('0.2.1-rc.2');
   });
 
   it('C-02: CodeBlock takes { code, lang, streaming } props and roots at div.md-code-block', () => {

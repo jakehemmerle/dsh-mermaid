@@ -1,20 +1,19 @@
 // One isolated real `dsh web` + Playwright page per generated case: private HOME/DSH_HOME,
-// port 0, local mock model, plugin loaded from this checkout's lib/index.js.
+// port 0, local mock model, plugin from this checkout, installed per MMD_INSTALL
+// (test/install.ts: explicit lib/index.js row, `dsh plugin add link:`, or a packed tarball).
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright';
+import { type Install, installMode, installPlugin, pluginRows, ROOT } from '../install';
 import { startMockLlm } from '../rig/mock-llm.mjs';
 import { makeProfile, paths, startWeb } from '../rig/rig.mjs';
 
-export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-export const PLUGIN_ENTRY = join(ROOT, 'lib/index.js');
 export const ARTIFACTS = join(ROOT, 'test/artifacts');
 
 export interface Plan { text: string; holdAfterText?: boolean; chunk?: number }
 
 /** Console noise from the stock DSH web app that is not the plugin's (checked without the plugin too). */
-// dsh web 0.2.1-alpha.2 probes /open-in-app/icon/<editor> for editors that are not installed (404),
+// dsh web (0.2.1-alpha.2 and 0.2.1-rc.2) probes /open-in-app/icon/<editor> for editors that are not installed (404),
 // with or without this plugin.
 const ALLOWED_URL = /\/open-in-app\/icon\//;
 const ALLOWED_CONSOLE: RegExp[] = [];
@@ -26,6 +25,8 @@ export interface WebFixture {
   /** Replies for the next agent turns, consumed in order. */
   readonly replies: Plan[];
   readonly problems: string[];
+  /** How the plugin reached the profile (test/install.ts). */
+  readonly install: Install;
   readonly versions: { dsh: string | null; tuiDir: string | null };
   dispose(): Promise<void>;
 }
@@ -40,12 +41,12 @@ export async function closeBrowser(): Promise<void> {
   shared = undefined;
 }
 
-export async function startWebFixture({ plugin = true, viewport = { width: 1300, height: 900 } } = {}): Promise<WebFixture> {
+export async function startWebFixture({ plugin = true, install = installMode(), viewport = { width: 1300, height: 900 } }: { plugin?: boolean; install?: Install; viewport?: { width: number; height: number } } = {}): Promise<WebFixture> {
   const replies: Plan[] = [];
   const mock = await startMockLlm({ script: () => replies.shift() ?? { text: 'OK' } });
   const profile = makeProfile({
     kind: 'web', mock,
-    plugins: plugin ? [{ id: 'ui-mermaid', name: PLUGIN_ENTRY, config: {} }] : [],
+    plugins: plugin ? pluginRows(install) : [],
     rows: [{ id: 'ui-settings-general', config: { welcomeNoticeVersion: '2026-09-28.1' } }],
   });
   // First-use default workspace lives under a private Documents directory (Linux would ask xdg-user-dir).
@@ -55,6 +56,7 @@ export async function startWebFixture({ plugin = true, viewport = { width: 1300,
   let web: Awaited<ReturnType<typeof startWeb>> | undefined;
   let context: BrowserContext | undefined;
   try {
+    if (plugin) await installPlugin(profile, install);
     web = await startWeb(profile);
     context = await (await browser()).newContext({ viewport, colorScheme: 'light' });
     const page = await context.newPage();
@@ -72,7 +74,7 @@ export async function startWebFixture({ plugin = true, viewport = { width: 1300,
     const w = web;
     const c = context;
     return {
-      page, mock, profile, replies, problems,
+      page, mock, profile, replies, problems, install,
       versions: { dsh: where.version, tuiDir: where.tui },
       async dispose() {
         await c.close().catch(() => undefined);

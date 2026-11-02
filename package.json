@@ -1,15 +1,34 @@
 {
-  "name": "dsh-plugin-mermaid",
-  "version": "0.0.2-alpha.1",
+  "name": "dsh-mermaid",
+  "version": "0.1.0-rc.1",
+  "description": "DeepSeek Harness (DSH) web plugin that renders mermaid code fences in chat messages as diagrams",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jakehemmerle/dsh-mermaid.git"
+  },
+  "homepage": "https://github.com/jakehemmerle/dsh-mermaid#readme",
+  "keywords": [
+    "dsh-plugin",
+    "mermaid"
+  ],
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/client.mermaid.js",
+    "cordis.patch.yml"
+  ],
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web"
     }
@@ -20,12 +39,8 @@
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:contract": "vitest run --project contract",
-    "test:e2e": "vitest run --project browser --project web --project tui"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
+    "test:e2e": "vitest run --project browser --project web --project tui",
+    "prepare": "node build.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

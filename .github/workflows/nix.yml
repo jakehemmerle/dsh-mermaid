@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        shell: nix shell --inputs-from . nixpkgs#nodejs nixpkgs#pnpm_10 --command bash -euo pipefail {0}
+        shell: nix shell --inputs-from . nixpkgs#nodejs nixpkgs#pnpm_11 --command bash -euo pipefail {0}
     env:
       PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS: "1"
     steps:

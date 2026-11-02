@@ -2,7 +2,7 @@ import * as esbuild from 'esbuild';
 import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-const ID = 'dsh-plugin-mermaid';
+const ID = 'dsh-mermaid';
 const root = fileURLToPath(new URL('.', import.meta.url));
 
 const bundles = [

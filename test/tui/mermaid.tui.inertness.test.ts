@@ -1,4 +1,4 @@
-// dsh-plugin-mermaid has no dsh-TUI surface (option 3a): the web client renders mermaid
+// dsh-mermaid has no dsh-TUI surface (option 3a): the web client renders mermaid
 // fences; the plugin's Node half is inert outside dsh web. This suite proves that inertness
 // on a real dsh-TUI process: with the plugin loaded, the TUI starts, the plugin row is in
 // the composed profile, no load warnings appear, a full agent turn renders byte-identically
@@ -6,8 +6,10 @@
 // grows must turn this suite into real TUI properties (see TESTING.md).
 import { afterAll, describe, expect, it } from 'vitest';
 import { startMockLlm } from '../rig/mock-llm.mjs';
-import { makeProfile } from '../rig/rig.mjs';
-import { PLUGIN_ENTRY } from '../web/fixture';
+import { installMode, installPlugin, mermaidRows, pluginRows, rowName } from '../install';
+import { makeProfile, startTui } from '../rig/rig.mjs';
+
+const INSTALL = installMode();
 
 const REPLY = 'Here is the diagram:\n\n\`\`\`mermaid\nflowchart LR\n  A["alpha"] --> B["beta"]\n\`\`\`\n\nDone.';
 /** Volatile header bits: the per-run tmp dir name, the live clock and the rotating tip line. */
@@ -27,11 +29,19 @@ interface TuiProfile {
 
 async function start(withPlugin: boolean): Promise<TuiProfile> {
   const mock = await startMockLlm({ script: () => ({ text: REPLY }) });
-  const { startTui } = await import('../rig/rig.mjs');
   const profile = makeProfile({
     kind: 'tui', mock,
-    plugins: withPlugin ? [{ id: 'ui-mermaid', name: PLUGIN_ENTRY, config: {} }] : [],
+    plugins: withPlugin ? pluginRows(INSTALL) : [],
   });
+  if (withPlugin) {
+    try {
+      await installPlugin(profile, INSTALL);
+    } catch (error) {
+      await mock.close();
+      profile.dispose();
+      throw error;
+    }
+  }
   const tui = startTui(profile);
   await tui.waitFor(/mock-alpha/);
   return {
@@ -65,8 +75,7 @@ describe('dsh-TUI inertness (real dsh-TUI, plugin loaded vs absent)', () => {
 
     // The plugin row is composed in and its load produced no warnings.
     const dump = await withPlugin.profile.dumpConfig();
-    expect(dump.stdout).toContain('ui-mermaid');
-    expect(dump.stdout).toContain(PLUGIN_ENTRY);
+    expect(mermaidRows(dump.stdout), `exactly one ui-mermaid row (${INSTALL} install)`).toEqual([{ name: rowName(INSTALL) }]);
     expect(withPlugin.profile.logs()).not.toMatch(/ui-mermaid/);
 
     const screenWith = await runTurn(withPlugin, 'alpha');

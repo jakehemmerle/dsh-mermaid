@@ -2,19 +2,20 @@
   lib,
   stdenv,
   nodejs,
-  pnpm_10,
+  pnpm_11,
   fetchPnpmDeps,
   pnpmConfigHook,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
-  pname = "dsh-plugin-mermaid";
+  pname = "dsh-mermaid";
   version = (lib.importJSON ../package.json).version;
 
   src = lib.fileset.toSource {
     root = ../.;
     fileset = lib.fileset.unions [
       ../build.mjs
+      ../cordis.patch.yml
       ../lib/index.js
       ../package.json
       ../pnpm-lock.yaml
@@ -28,15 +29,15 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [
     nodejs
-    pnpm_10
+    pnpm_11
     pnpmConfigHook
   ];
 
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
-    pnpm = pnpm_10;
+    pnpm = pnpm_11;
     fetcherVersion = 4;
-    hash = "sha256-8F4d47WIKU67jKWD/9YYTa/7r2SGkYz7MuirLWD5ZeI=";
+    hash = "sha256-Gdp38cpItxU+704YcmR1Ns6roVOhfdwcAgMbyekDNmM=";
   };
 
   buildPhase = ''
@@ -56,13 +57,13 @@ stdenv.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
     mkdir -p $out
-    cp -r lib package.json $out/
+    cp -r lib package.json cordis.patch.yml $out/
     runHook postInstall
   '';
 
   meta = {
     description = "DeepSeek Harness (dsh) web plugin that renders mermaid code fences as diagrams";
-    homepage = "https://github.com/jakehemmerle/dsh-plugin-mermaid";
+    homepage = "https://github.com/jakehemmerle/dsh-mermaid";
     platforms = [
       "x86_64-linux"
       "aarch64-linux"

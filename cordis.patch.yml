@@ -1,0 +1,7 @@
+# Bundle patch for `dsh plugin add` (package.json `dsh.bundle.patch`): inserts
+# the plugin row. `name` resolves from the profile's node_modules to this
+# package's Node entry (lib/index.js); the web half is found through
+# package.json `exports["./client"]` and `dsh.client`.
+- insert:
+    - id: ui-mermaid
+      name: dsh-mermaid

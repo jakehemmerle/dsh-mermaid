@@ -1,4 +1,4 @@
-# dsh-plugin-mermaid
+# dsh-mermaid
 
 A DeepSeek Harness (DSH) web GUI plugin that renders ```` ```mermaid ```` code fences in chat messages as diagrams.
 
@@ -10,17 +10,24 @@ A DeepSeek Harness (DSH) web GUI plugin that renders ```` ```mermaid ```` code f
 
 ## Install
 
+The package is a DSH bundle: `package.json` declares `dsh.bundle.patch` (`./cordis.patch.yml`, which inserts the `ui-mermaid` row) and `dsh.client` (the web half). Install it into a web profile with `dsh plugin add`, then restart `dsh web`:
+
 ```sh
-pnpm install
-pnpm build   # writes lib/client.js and lib/client.mermaid.js
+# prebuilt tarball from a GitHub release (no build step)
+dsh plugin --profile web add https://github.com/jakehemmerle/dsh-mermaid/releases/download/v0.1.0-rc.1/dsh-mermaid-0.1.0-rc.1.tgz
+# or a local checkout, after building it
+pnpm install && pnpm build
+dsh plugin --profile web add link:/path/to/dsh-mermaid
 ```
 
-Add this row to your DSH web profile patch (for example `~/.dsh/profiles/web/cordis.patch.yml`). The `name` must be the absolute path to the Node entry file; a directory path fails with `ERR_UNSUPPORTED_DIR_IMPORT`.
+`dsh plugin add` records the package as a profile dependency and appends it to `dsh.profile.bundles`; `dsh --profile web --dump-config` then shows one `id: ui-mermaid` row with `name: dsh-mermaid`. Remove it with `dsh plugin --profile web remove dsh-mermaid`.
+
+Without the bundle, add the row to the profile patch yourself (for example `~/.dsh/profiles/web/cordis.patch.yml`; this is how nix-config installs it). The `name` must then be the absolute path to the Node entry file; a directory path fails with `ERR_UNSUPPORTED_DIR_IMPORT`. Use one way or the other, not both, or the profile composes two `ui-mermaid` rows.
 
 ```yaml
 - insert:
     - id: ui-mermaid
-      name: /path/to/dsh-plugin-mermaid/lib/index.js
+      name: /path/to/dsh-mermaid/lib/index.js
 ```
 
 Disabling the plugin removes its observers, injected nodes, `<style>` element and data attributes.
@@ -43,8 +50,9 @@ pnpm test:unit    # fast-check properties of the pure core
 pnpm test:e2e     # real clients: shipped bundles in Chromium + Playwright campaigns on real `dsh web` + dsh-TUI inertness
 ```
 
-The real-client suites run against a real `dsh web` and a real `dsh-TUI` on the vendored rig (`test/rig/`): every run gets its own private `HOME`/`DSH_HOME`, free port and private tmux socket, and the only model is the local mock (`test/rig/mock-llm.mjs`). Nothing reads a live `~/.dsh` or `~/.dsh-tui`; set `DSH_BIN`, `DSH_ROOT`, `DSH_TUI_DIR` and `PLAYWRIGHT_BROWSERS_PATH` to pinned store builds (see `flake.nix`'s devShell) and run the suites via `nix develop`.
+The real-client suites run against a real `dsh web` and a real `dsh-TUI` on the vendored rig (`test/rig/`): every run gets its own private `HOME`/`DSH_HOME`, free port and private tmux socket, and the only model is the local mock (`test/rig/mock-llm.mjs`). Nothing reads a live `~/.dsh` or `~/.dsh-tui`; set `DSH_BIN`, `DSH_ROOT`, `DSH_TUI_DIR` and `PLAYWRIGHT_BROWSERS_PATH` to pinned store builds (see `flake.nix`'s devShell) and run the suites via `nix develop`. `MMD_INSTALL` picks how the web and TUI suites install the plugin (`test/install.ts`): `row` (default, an explicit `lib/index.js` row as nix-config writes it), `link` (`dsh plugin add link:<checkout>`) or `tarball` (`dsh plugin add` of the `pnpm pack` output).
 
+- `test/web/bundle-install.e2e.test.ts` — `dsh plugin add` of the checkout and of the packed tarball: one composed `ui-mermaid` row, one bundle entry (also after a repeated add), and a rendered, visible diagram whose arrowhead resolves.
 - `test/web/mermaid.web.property.test.ts` — fast-check generated action sequences (send / held send / toggle / theme / reload) against the real web client, invariants checked after every step; replay with `NUM_RUNS`, `FC_SEED`, `FC_PATH`.
 - `test/web/streaming.e2e.test.ts` — paced-chunk streaming: the fence stays plain code while the turn streams, then renders once after settle; prints `RELEASE_TO_DIAGRAM_MS=…`.
 - `test/web/duplicate-ids.test.ts` — two identical fences get distinct SVG element ids.
@@ -56,14 +64,14 @@ Suites write screenshots to `test/artifacts/` on failure.
 
 ## Nix
 
-The flake builds the plugin for `x86_64-linux`, `aarch64-linux` and `aarch64-darwin`. `packages.<system>.default` contains only `lib/` and `package.json`. Its build runs `tsc --noEmit` and the `unit` vitest project, and `checks.<system>.default` is the same package.
+The flake builds the plugin for `x86_64-linux`, `aarch64-linux` and `aarch64-darwin`. `packages.<system>.default` contains `lib/`, `package.json` and `cordis.patch.yml`. Its build runs `tsc --noEmit` and the `unit` vitest project, and `checks.<system>.default` is the same package.
 
 ```sh
-nix build github:jakehemmerle/dsh-plugin-mermaid   # result/lib/index.js
+nix build github:jakehemmerle/dsh-mermaid   # result/lib/index.js
 nix flake check -L
 ```
 
-As a flake input, use `${dsh-plugin-mermaid.packages.${system}.default}/lib/index.js` as the `name` in the profile patch row above. After a `pnpm-lock.yaml` change, update `hash` in `nix/package.nix` with the value Nix reports.
+As a flake input, use `${dsh-mermaid.packages.${system}.default}/lib/index.js` as the `name` in the profile patch row above. After a `pnpm-lock.yaml` change, update `hash` in `nix/package.nix` with the value Nix reports.
 
 CI (`.github/workflows/nix.yml`) runs `nix flake check -L` on Linux and macOS runners, so the package build with its tsc + unit checks and the DSH-seam contract check is exercised on both OSes. The real-client web/TUI suites need the pinned `dsh web`, `dsh-TUI` and Nix Chromium of the flake devShell, so they run locally or in the repo environment (`nix run .#e2e`).
 
